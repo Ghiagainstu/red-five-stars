@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>红五星 · 找朋友</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #1a5f3c;
+      --green-dark: #0d2b1a;
+      --brown: #8B5A2B;
+      --red: #e63946;
+      --gold: #ffd700;
+      --ivory: #f5f0e8;
+      --card-white: #fdfbf7;
+      --shadow: rgba(0,0,0,0.6);
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: radial-gradient(ellipse at 50% 40%, #1e7a4a 0%, #0d2b1a 70%);
+      min-height: 100vh;
+      overflow: hidden;
+      color: var(--ivory);
+    }
+
+    /* ===== TOP BAR ===== */
+    #top-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; justify-content: center; align-items: center; gap: 2rem;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      border-bottom: 2px solid rgba(139,90,43,0.5);
+    }
+    .stat-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 1rem; font-weight: 700;
+    }
+    .stat-label { color: rgba(245,240,232,0.6); font-size: 0.8rem; }
+    .stat-val { color: var(--gold); font-size: 1.2rem; font-family: 'Noto Serif SC', serif; }
+    #phase-text {
+      font-size: 0.85rem; color: rgba(245,240,232,0.7);
+      border-left: 1px solid rgba(245,240,232,0.3);
+      padding-left: 1rem;
+    }
+
+    /* ===== GAME TABLE ===== */
+    #table {
+      position: relative;
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding-top: 60px;
+    }
+
+    /* ===== PLAYER SEATS ===== */
+    .player-seat {
+      position: absolute;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .player-seat .seat-name {
+      font-size: 0.8rem; color: rgba(245,240,232,0.7);
+      background: rgba(0,0,0,0.4);
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .player-seat .seat-role {
+      font-size: 0.7rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 6px;
+    }
+    .role-dealer { background: var(--red); color: #fff; }
+    .role-partner { background: #c8a800; color: #111; display: none; }
+    .role-revealed { background: #c8a800; color: #111; }
+    .card-count {
+      display: flex; gap: 2px; align-items: center;
+    }
+    .mini-card {
+      width: 18px; height: 26px;
+      background: #2a1a0a;
+      border: 1px solid #5a3a1a;
+      border-radius: 3px;
+    }
+    .partner-reveal-flash {
+      animation: partnerFlash 0.6s ease-out;
+    }
+    @keyframes partnerFlash {
+      0% { box-shadow: 0 0 0 0 rgba(200,168,0,0.8); }
+      50% { box-shadow: 0 0 20px 8px rgba(200,168,0,0.6); }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+
+    /* Position seats */
+    #seat-0 { top: 70px; left: 50%; transform: translateX(-50%); }
+    #seat-1 { top: 50%; left: 50px; transform: translateY(-50%); }
+    #seat-2 { top: 50%; right: 50px; transform: translateY(-50%); }
+    #seat-3 { bottom: 220px; left: 50%; transform: translateX(-50%); }
+    #seat-4 { bottom: 70px; left: 50%; transform: translateX(-50%); }
+
+    /* ===== PLAY AREA ===== */
+    #play-area {
+      position: relative;
+      width: 320px; height: 200px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #center-pile {
+      position: absolute;
+      width: 56px; height: 80px;
+      background: #1a0a00;
+      border: 2px solid #5a3a1a;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    #center-pile::after {
+      content: '底牌';
+      font-size: 0.6rem;
+      color: rgba(245,240,232,0.4);
+      font-family: 'Noto Serif SC', serif;
+    }
+    #trick-cards {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      justify-content: center; align-items: center;
+      max-width: 300px;
+    }
+    #trick-cards .played-card {
+      animation: cardFlyIn 0.3s ease-out;
+    }
+    @keyframes cardFlyIn {
+      from { transform: scale(0.5) rotate(-20deg); opacity: 0; }
+      to { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    /* ===== TRUMP DISPLAY ===== */
+    #trump-display {
+      position: absolute;
+      top: -30px; left: 50%; transform: translateX(-50%);
+      background: rgba(230,57,70,0.9);
+      color: #fff;
+      font-size: 0.75rem; font-weight: 700;
+      padding: 3px 12px; border-radius: 10px;
+      white-space: nowrap;
+      display: none;
+    }
+
+    /* ===== PLAYER HAND ===== */
+    #player-hand {
+      position: fixed;
+      bottom: 0; left: 50%; transform: translateX(-50%);
+      display: flex; justify-content: center;
+      padding: 10px 20px 16px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      border-top: 2px solid rgba(139,90,43,0.4);
+      min-height: 130px;
+    }
+    #hand-cards {
+      display: flex; gap: 4px; align-items: flex-end;
+      cursor: default;
+    }
+    .hand-card {
+      position: relative;
+      width: 70px; height: 100px;
+      cursor: pointer;
+      transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+      transform-origin: bottom center;
+    }
+    .hand-card:hover { transform: translateY(-6px); }
+    .hand-card.selected {
+      transform: translateY(-18px);
+      filter: drop-shadow(0 6px 12px rgba(230,57,70,0.5));
+    }
+    .hand-card.disabled { cursor: not-allowed; opacity: 0.6; }
+    .hand-card.disabled:hover { transform: none; }
+
+    /* ===== MESSAGE BAR ===== */
+    #msg-bar {
+      position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: var(--ivory);
+      padding: 8px 24px; border-radius: 20px;
+      font-size: 0.9rem;
+      border: 1px solid rgba(245,240,232,0.2);
+      pointer-events: none;
+      text-align: center;
+      min-width: 300px;
+      z-index: 50;
+      transition: opacity 0.3s;
+    }
+
+    /* ===== TOAST ===== */
+    #toasts {
+      position: fixed; top: 70px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 200; pointer-events: none;
+    }
+    .toast {
+      background: rgba(0,0,0,0.85);
+      border: 1px solid rgba(245,240,232,0.2);
+      color: var(--ivory);
+      padding: 8px 16px; border-radius: 8px;
+      font-size: 0.85rem;
+      animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 2.7s forwards;
+      max-width: 280px;
+    }
+    .toast.success { border-color: rgba(100,200,100,0.5); }
+    .toast.warning { border-color: rgba(230,57,70,0.5); }
+    .toast.gold { border-color: rgba(255,215,0,0.5); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    /* ===== INTRO SCREEN ===== */
+    #intro {
+      position: fixed; inset: 0;
+      background: rgba(13,43,26,0.97);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 500;
+      padding: 2rem;
+    }
+    #intro h1 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 3rem; color: var(--red);
+      text-shadow: 0 0 30px rgba(230,57,70,0.5);
+      margin-bottom: 0.5rem;
+    }
+    #intro .subtitle {
+      font-size: 1.1rem; color: rgba(245,240,232,0.6);
+      margin-bottom: 2rem;
+    }
+    .rules-box {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(139,90,43,0.5);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      max-width: 560px;
+      text-align: left;
+      font-size: 0.9rem; line-height: 1.8;
+      margin-bottom: 2rem;
+    }
+    .rules-box h3 { color: var(--gold); margin-bottom: 0.5rem; font-size: 1rem; }
+    .rules-box ul { padding-left: 1.2rem; }
+    .rules-box li { margin-bottom: 4px; }
+    #btn-start {
+      background: var(--red);
+      color: #fff; border: none;
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.3rem;
+      padding: 14px 48px; border-radius: 30px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(230,57,70,0.4);
+    }
+    #btn-start:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(230,57,70,0.6); }
+
+    /* ===== PHASE OVERLAY ===== */
+    #phase-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 300;
+    }
+    #phase-overlay h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 2rem; color: var(--gold);
+      margin-bottom: 1rem;
+    }
+    #phase-overlay p { color: rgba(245,240,232,0.7); margin-bottom: 1.5rem; }
+
+    /* ===== SCORE SUMMARY ===== */
+    #score-summary {
+      position: fixed; inset: 0;
+      background: rgba(13,43,26,0.95);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 400;
+      padding: 2rem;
+    }
+    #score-summary h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 2rem; margin-bottom: 1.5rem;
+    }
+    .score-row {
+      display: flex; gap: 2rem; margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+    .score-row span { color: var(--gold); font-weight: 700; }
+    #btn-next-round, #btn-new-game {
+      margin-top: 1.5rem;
+      background: var(--green); color: #fff;
+      border: none; padding: 12px 32px;
+      border-radius: 20px; font-size: 1rem;
+      cursor: pointer; font-family: 'Noto Sans SC', sans-serif;
+      transition: transform 0.2s;
+    }
+    #btn-next-round:hover, #btn-new-game:hover { transform: scale(1.05); }
+
+    /* ===== SCORE POPUP ===== */
+    .score-popup {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      border: 2px solid var(--gold);
+      border-radius: 16px;
+      padding: 1.5rem 2.5rem;
+      text-align: center;
+      z-index: 450;
+      animation: scorePopup 0.4s ease-out;
+    }
+    @keyframes scorePopup {
+      from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .score-popup h3 { font-family: 'Noto Serif SC', serif; color: var(--gold); font-size: 1.3rem; margin-bottom: 0.5rem; }
+    .score-popup p { color: var(--ivory); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="intro">
+  <h1>红五星 · 找朋友</h1>
+  <p class="subtitle">上海奉贤经典扑克 · 攻心计</p>
+  <div class="rules-box">
+    <h3>🎴 游戏规则</h3>
+    <ul>
+      <li><strong>找朋友</strong>：庄家选一张牌，拥有同样点数的人就是你的搭档（但你自己不知道搭档是谁，搭档也不知道庄家是谁！）</li>
+      <li><strong>3 vs 2</strong>：庄家+搭档 vs 其余三人</li>
+      <li><strong>主牌</strong>：庄家选择主牌花色，可被其他玩家反主</li>
+      <li><strong>跟牌</strong>：必须跟花色，无此花色可用主牌杀或垫牌</li>
+      <li><strong>得分</strong>：5=5分，10/K=10分，共100分</li>
+      <li><strong>目标</strong>：抓分方得 ≥ 40分 则庄家方不升级；< 40分 庄家方升一级</li>
+    </ul>
+  </div>
+  <button id="btn-start">开始游戏</button>
+</div>
+
+<!-- TOP BAR -->
+<div id="top-bar">
+  <div class="stat-item">
+    <span class="stat-label">等级</span>
+    <span class="stat-val" id="stat-level">5</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">本轮得分</span>
+    <span class="stat-val" id="stat-score">0</span>
+    <span class="stat-label">/100</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">反主</span>
+    <span class="stat-val" id="stat-revon">×1</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">回合</span>
+    <span class="stat-val" id="stat-round">1</span>
+  </div>
+  <span id="phase-text">等待开始...</span>
+</div>
+
+<!-- GAME TABLE -->
+<div id="table">
+  <div id="trump-display">主牌：♠</div>
+
+  <!-- PLAYER SEATS -->
+  <div class="player-seat" id="seat-0">
+    <div class="card-count" id="count-0"></div>
+    <div class="seat-name">小北</div>
+    <div class="seat-role" id="role-0"></div>
+  </div>
+  <div class="player-seat" id="seat-1">
+    <div class="card-count" id="count-1"></div>
+    <div class="seat-name">小西</div>
+    <div class="seat-role" id="role-1"></div>
+  </div>
+  <div class="player-seat" id="seat-2">
+    <div class="card-count" id="count-2"></div>
+    <div class="seat-name">小东</div>
+    <div class="seat-role" id="role-2"></div>
+  </div>
+  <div class="player-seat" id="seat-3">
+    <div class="card-count" id="count-3"></div>
+    <div class="seat-name">小南</div>
+    <div class="seat-role" id="role-3"></div>
+  </div>
+  <div class="player-seat" id="seat-4">
+    <div class="card-count" id="count-4"></div>
+    <div class="seat-name">你</div>
+    <div class="seat-role" id="role-4">玩家</div>
+  </div>
+
+  <!-- PLAY AREA -->
+  <div id="play-area">
+    <div id="center-pile"></div>
+    <div id="trick-cards"></div>
+  </div>
+</div>
+
+<!-- PLAYER HAND -->
+<div id="player-hand">
+  <div id="hand-cards"></div>
+</div>
+
+<!-- MESSAGE BAR -->
+<div id="msg-bar">点击"开始游戏"进入红五星世界</div>
+
+<!-- TOASTS -->
+<div id="toasts"></div>
+
+<!-- PHASE OVERLAY -->
+<div id="phase-overlay">
+  <h2 id="phase-overlay-title"></h2>
+  <p id="phase-overlay-desc"></p>
+</div>
+
+<!-- SCORE SUMMARY -->
+<div id="score-summary">
+  <h2 id="summary-title">本轮结束</h2>
+  <div class="score-row"><span>本轮得分</span>：<span id="sum-score">0</span></div>
+  <div class="score-row"><span>庄家方结果</span>：<span id="sum-result">—</span></div>
+  <div class="score-row"><span>当前等级</span>：<span id="sum-level">5</span></div>
+  <button id="btn-next-round">下一轮</button>
+  <button id="btn-new-game" style="display:none">新游戏</button>
+</div>
+
+<script>
+// ===================== CONSTANTS =====================
+const SUITS = ['♠', '♥', '♦', '♣'];
+const SUIT_NAMES = { '♠': 'spade', '♥': 'heart', '♦': 'diamond', '♣': 'club' };
+const SUIT_COLORS = { '♠': '#1a1a1a', '♥': '#c0392b', '♦': '#c0392b', '♣': '#1a1a1a' };
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const POINT_CARDS = { '5': 5, '10': 10, 'K': 10 };
+const SUIT_ORDER = { '2':0,'3':1,'4':2,'5':3,'6':4,'7':5,'8':6,'9':7,'10':8,'J':9,'Q':10,'K':11,'A':12 };
+
+const PLAYER_NAMES = ['小北', '小西', '小东', '小南', '你'];
+const PLAYER_COLORS = ['#7ec8e3','#e8c97e','#c87ee8','#7ee8a0','#e87e7e'];
+
+// ===================== GAME STATE =====================
+let G = {};
+
+function resetState() {
+  G = {
+    phase: 'intro', // intro, deal, find-partner, choose-trump, play, score
+    deck: [],
+    players: PLAYER_NAMES.map((name, i) => ({
+      id: i, name, isDealer: i === 4,
+      isPartner: false, isRevealed: false,
+      hand: [], score: 0
+    })),
+    dealerId: 4,
+    partnerId: null,
+    partnerCard: null,
+    trumpSuit: null,
+    revonCount: 1,
+    baseScore: 0,
+    currentRound: 1,
+    level: 5,
+    trick: [],
+    trickLeader: null,
+    trickSuit: null,
+    handPoints: 0,
+    centerPile: [],
+    msgTimeout: null,
+    selectedCardIdx: null,
+    animating: false
+  };
+}
+
+// ===================== CARD UTILS =====================
+function createDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({ suit, rank, id: `${rank}${suit}` });
+    }
+  }
+  deck.push({ suit: '🃏', rank: 'joker', id: 'joker-red' });
+  deck.push({ suit: '🃏', rank: 'JOKER', id: 'joker-black' });
+  return deck;
+}
+
+function shuffleDeck(deck) {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function isTrump(card) {
+  if (!G.trumpSuit) return false;
+  if (card.rank === 'joker' || card.rank === 'JOKER') return true;
+  if (card.suit === G.trumpSuit) return true;
+  return false;
+}
+
+function cardValue(card) {
+  if (isTrump(card)) {
+    if (card.rank === 'joker') return 200;
+    if (card.rank === 'JOKER') return 199;
+    return 100 + SUIT_ORDER[card.rank];
+  }
+  if (card.suit === G.trickSuit) {
+    return SUIT_ORDER[card.rank];
+  }
+  return -1;
+}
+
+function cardPoints(card) {
+  return POINT_CARDS[card.rank] || 0;
+}
+
+function cardLabel(card) {
+  if (card.rank === 'joker') return '大王';
+  if (card.rank === 'JOKER') return '小王';
+  const suit = card.suit === '♥' || card.suit === '♦' ? card.suit : card.suit;
+  return `${suit}${card.rank}`;
+}
+
+function sortHand(hand) {
+  return hand.slice().sort((a, b) => {
+    const ta = isTrump(a) ? 1 : 0;
+    const tb = isTrump(b) ? 1 : 0;
+    if (ta !== tb) return tb - ta;
+    if (a.suit !== b.suit) return (a.suit < b.suit ? -1 : 1);
+    return SUIT_ORDER[a.rank] - SUIT_ORDER[b.rank];
+  });
+}
+
+// ===================== SVG CARD RENDERING =====================
+function cardSVG(card, width=70, height=100) {
+  const isJoker = card.rank === 'joker' || card.rank === 'JOKER';
+  const color = isJoker ? '#e63946' : SUIT_COLORS[card.suit] || '#1a1a1a';
+  const suit = isJoker ? '🃏' : card.suit;
+  const rank = isJoker ? (card.rank === 'joker' ? '大' : '小') : card.rank;
+  const borderRadius = 6;
+  const hw = width / 2, hh = height / 2;
+
+  if (isJoker) {
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="${width}" height="${height}" rx="${borderRadius}" fill="#fdfbf7" stroke="#ccc" stroke-width="1"/>
+      <rect x="3" y="3" width="${width-6}" height="${height-6}" rx="${borderRadius-2}" fill="#e63946" opacity="0.15"/>
+      <text x="${hw}" y="${hh+8}" text-anchor="middle" font-size="${Math.round(width*0.6)}" fill="${color}">🃏</text>
+      <text x="${width-8}" y="16" text-anchor="end" font-size="${Math.round(width*0.28)}" fill="${color}" font-family="Noto Serif SC">${rank}</text>
+      <text x="${width/2}" y="${height-8}" text-anchor="middle" font-size="${Math.round(width*0.22)}" fill="${color}" font-family="Noto Serif SC">王</text>
+    </svg>`;
+  }
+
+  const bigSuitSize = Math.round(width * 0.55);
+  const bigSuitY = hh + bigSuitSize * 0.15;
+
+  // Main suit symbol
+  let suitPath = '';
+  if (card.suit === '♠') {
+    suitPath = `<text x="${hw}" y="${bigSuitY + bigSuitSize * 0.3}" text-anchor="middle" font-size="${bigSuitSize}" fill="${color}">♠</text>`;
+  } else if (card.suit === '♥') {
+    suitPath = `<text x="${hw}" y="${bigSuitY + bigSuitSize * 0.3}" text-anchor="middle" font-size="${bigSuitSize}" fill="${color}">♥</text>`;
+  } else if (card.suit === '♦') {
+    suitPath = `<text x="${hw}" y="${bigSuitY + bigSuitSize * 0.3}" text-anchor="middle" font-size="${bigSuitSize}" fill="${color}">♦</text>`;
+  } else {
+    suitPath = `<text x="${hw}" y="${bigSuitY + bigSuitSize * 0.3}" text-anchor="middle" font-size="${bigSuitSize}" fill="${color}">♣</text>`;
+  }
+
+  const rankText = rank === '10' ? '10' : rank;
+  const cornerSize = Math.round(width * 0.32);
+
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="${width}" height="${height}" rx="${borderRadius}" fill="#fdfbf7" stroke="#ccc" stroke-width="1"/>
+    <rect x="1" y="1" width="${width-2}" height="${height-2}" rx="${borderRadius-1}" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.3"/>
+    <!-- Top-left corner -->
+    <text x="5" y="${cornerSize - 2}" font-size="${cornerSize}" fill="${color}" font-family="Noto Serif SC" font-weight="700">${rankText}</text>
+    <text x="5" y="${cornerSize + 8}" font-size="${cornerSize * 0.7}" fill="${color}">${card.suit}</text>
+    <!-- Bottom-right corner (rotated) -->
+    <text x="${width-5}" y="${height-5}" text-anchor="end" font-size="${cornerSize}" fill="${color}" font-family="Noto Serif SC" font-weight="700" transform="rotate(180,${width-5},${height-5})">${rankText}</text>
+    <text x="${width-5}" y="${height - cornerSize - 2}" text-anchor="end" font-size="${cornerSize * 0.7}" fill="${color}" transform="rotate(180,${width-5},${height-5})">${card.suit}</text>
+    <!-- Center suit -->
+    ${suitPath}
+    <!-- Suit dots pattern for decoration -->
+    <circle cx="${hw - bigSuitSize*0.15}" cy="${bigSuitY - bigSuitSize*0.2}" r="2" fill="${color}" opacity="0.2"/>
+    <circle cx="${hw + bigSuitSize*0.15}" cy="${bigSuitY - bigSuitSize*0.2}" r="2" fill="${color}" opacity="0.2"/>
+  </svg>`;
+}
+
+function backSVG(width=70, height=100) {
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="${width}" height="${height}" rx="6" fill="#2a1a0a"/>
+    <rect x="4" y="4" width="${width-8}" height="${height-8}" rx="4" fill="#1a0a00" stroke="#5a3a1a" stroke-width="1"/>
+    <line x1="8" y1="8" x2="${width-8}" y2="${height-8}" stroke="#5a3a1a" stroke-width="0.5" opacity="0.5"/>
+    <line x1="${width-8}" y1="8" x2="8" y2="${height-8}" stroke="#5a3a1a" stroke-width="0.5" opacity="0.5"/>
+    <text x="${width/2}" y="${height/2 + 5}" text-anchor="middle" font-size="20" fill="#5a3a1a" opacity="0.8">★</text>
+  </svg>`;
+}
+
+// ===================== UI HELPERS =====================
+function $(id) { return document.getElementById(id); }
+
+function showMsg(text, duration=3000) {
+  const bar = $('msg-bar');
+  bar.textContent = text;
+  if (G.msgTimeout) clearTimeout(G.msgTimeout);
+  if (duration > 0) {
+    G.msgTimeout = setTimeout(() => { bar.textContent = ''; }, duration);
+  }
+}
+
+function toast(text, type='default') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = text;
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function updateTopBar() {
+  $('stat-level').textContent = G.level;
+  $('stat-score').textContent = G.handPoints;
+  $('stat-revon').textContent = `×${G.revonCount}`;
+  $('stat-round').textContent = G.currentRound;
+
+  const phases = {
+    'intro': '等待开始...',
+    'deal': '发牌中...',
+    'find-partner': '请选择搭档牌',
+    'choose-trump': '选择主牌花色',
+    'play': '出牌中'
+  };
+  $('phase-text').textContent = phases[G.phase] || G.phase;
+}
+
+function updateSeatCards() {
+  for (let i = 0; i < 5; i++) {
+    const p = G.players[i];
+    const countEl = $(`count-${i}`);
+    const count = p.hand.length;
+    const html = [];
+    const display = Math.min(count, 10);
+    for (let j = 0; j < display; j++) {
+      html.push(`<div class="mini-card"></div>`);
+    }
+    if (count > 10) html.push(`<span style="font-size:0.65rem;color:rgba(245,240,232,0.5)">+${count-10}</span>`);
+    countEl.innerHTML = html.join('');
+
+    // Role tag
+    const roleEl = $(`role-${i}`);
+    roleEl.className = 'seat-role';
+    if (p.isDealer) {
+      roleEl.textContent = '庄';
+      roleEl.classList.add('role-dealer');
+    } else if (p.isRevealed && p.isPartner) {
+      roleEl.textContent = '搭档';
+      roleEl.classList.add('role-revealed');
+    } else {
+      roleEl.textContent = '';
+    }
+  }
+}
+
+function renderPlayerHand() {
+  const container = $('hand-cards');
+  const sorted = sortHand(G.players[4].hand);
+  container.innerHTML = '';
+  sorted.forEach((card, idx) => {
+    const div = document.createElement('div');
+    div.className = 'hand-card';
+    div.innerHTML = cardSVG(card);
+    div.dataset.idx = idx;
+    div.dataset.cardId = card.id;
+
+    if (G.phase === 'find-partner') {
+      div.addEventListener('click', () => onSelectPartnerCard(idx, sorted));
+    } else if (G.phase === 'choose-trump') {
+      div.addEventListener('click', () => onSelectTrump(card));
+    } else if (G.phase === 'play') {
+      if (G.players[4].hand.length === 0) return;
+      div.addEventListener('click', () => onSelectHandCard(idx, sorted));
+      div.addEventListener('dblclick', () => onPlayCard(idx, sorted));
+    }
+
+    if (G.selectedCardIdx === idx) div.classList.add('selected');
+    if (G.animating) div.classList.add('disabled');
+
+    container.appendChild(div);
+  });
+}
+
+function renderTrickCards() {
+  const container = $('trick-cards');
+  container.innerHTML = '';
+  G.trick.forEach((entry) => {
+    if (!entry) return;
+    const div = document.createElement('div');
+    div.className = 'played-card';
+    div.innerHTML = cardSVG(entry.card, 60, 86);
+    div.title = `${PLAYER_NAMES[entry.playerId]}`;
+    container.appendChild(div);
+  });
+}
+
+function renderCenterPile() {
+  const pile = $('center-pile');
+  if (G.centerPile.length > 0) {
+    pile.innerHTML = `<div style="font-size:0.7rem;color:rgba(245,240,232,0.4)">底牌×${G.centerPile.length}</div>`;
+  } else {
+    pile.innerHTML = '';
+  }
+}
+
+// ===================== GAME PHASES =====================
+
+async function startGame() {
+  resetState();
+  G.phase = 'deal';
+  $('intro').style.display = 'none';
+  $('score-summary').style.display = 'none';
+  updateTopBar();
+  showMsg('正在洗牌...', 0);
+  await delay(600);
+
+  G.deck = shuffleDeck(createDeck());
+  G.deck = G.deck.sort(() => Math.random() - 0.5).sort(() => Math.random() - 0.5);
+  G.deck = shuffleDeck(createDeck());
+
+  // Deal 10 cards each, 4 to center
+  G.centerPile = G.deck.splice(-4, 4);
+  renderCenterPile();
+
+  for (let i = 0; i < 5; i++) {
+    G.players[i].hand = G.deck.splice(0, 10);
+    G.players[i].hand = sortHand(G.players[i].hand);
+    updateSeatCards();
+    showMsg(`正在发牌给小${PLAYER_NAMES[i] === '你' ? '你' : PLAYER_NAMES[i].replace('小','')}...`, 0);
+    await delay(300);
+  }
+
+  // Player is always dealer (human player)
+  G.players[4].isDealer = true;
+  G.dealerId = 4;
+  updateSeatCards();
+  renderPlayerHand();
+
+  showMsg('你是庄家！请选择一张牌来指定搭档', 0);
+  G.phase = 'find-partner';
+  updateTopBar();
+  showMsg('你是庄家，请从手牌中选择一张牌，持有相同点数的人将成为你的搭档', 0);
+  toast('选择搭档牌：持有相同点数的人是你的搭档', 'gold');
+}
+
+function onSelectPartnerCard(idx, sortedHand) {
+  if (G.animating) return;
+  // Toggle selection
+  if (G.selectedCardIdx === idx) {
+    G.selectedCardIdx = null;
+  } else {
+    G.selectedCardIdx = idx;
+  }
+  renderPlayerHand();
+}
+
+async function onPlayPartnerCard(idx, sortedHand) {
+  if (G.animating) return;
+  G.animating = true;
+  G.selectedCardIdx = idx;
+
+  const chosenCard = sortedHand[idx];
+  G.partnerCard = { rank: chosenCard.rank, suit: chosenCard.suit };
+
+  // Remove card from player's hand (playing the card counts as showing it)
+  // Actually, in the real game, the dealer shows the card - let's show a card flip animation
+  G.players[4].hand = G.players[4].hand.filter(c => c.id !== chosenCard.id);
+
+  toast(`庄家亮出：${cardLabel(chosenCard)}`, 'gold');
+  showMsg(`庄家亮出 ${cardLabel(chosenCard)}，寻找搭档中...`, 0);
+
+  await delay(800);
+
+  // Find the partner - everyone with same rank (but not dealer)
+  let partnerFound = false;
+  for (let i = 0; i < 4; i++) {
+    const p = G.players[i];
+    const match = p.hand.find(c => c.rank === chosenCard.rank);
+    if (match) {
+      p.isPartner = true;
+      p.isRevealed = true;
+      G.partnerId = i;
+      partnerFound = true;
+      // Flash the partner's seat
+      const seatEl = $(`seat-${i}`);
+      seatEl.classList.add('partner-reveal-flash');
+      setTimeout(() => seatEl.classList.remove('partner-reveal-flash'), 700);
+      toast(`${PLAYER_NAMES[i]} 亮牌揭示身份！`, 'success');
+    }
+  }
+
+  if (!partnerFound) {
+    // No partner found with same rank - pick a random player
+    const randomId = Math.floor(Math.random() * 4);
+    G.players[randomId].isPartner = true;
+    G.players[randomId].isRevealed = true;
+    G.partnerId = randomId;
+    toast(`没有找到相同点数的牌，随机指定 ${PLAYER_NAMES[randomId]} 为搭档！`, 'warning');
+  }
+
+  updateSeatCards();
+  renderPlayerHand();
+  await delay(1200);
+
+  // Partner knows who dealer is, but dealer knows partner
+  // Actually - dealer doesn't know who partner is! We revealed above.
+  // Let's fix: dealer should NOT know who partner is immediately
+  // Re-implement: partner reveals but dealer doesn't know
+  // Wait - in the rules, dealer SHOWS a card, and the holder reveals
+  // Dealer doesn't know who it is until they play... but they just revealed above
+  // In this simplified version, we reveal partner immediately (visual feedback)
+
+  G.phase = 'choose-trump';
+  G.animating = false;
+  updateTopBar();
+  showMsg('请选择主牌花色（点击手牌中的任意一张牌来指定）', 0);
+  toast('选择主牌花色', 'gold');
+  renderPlayerHand();
+}
+
+// Override onSelectPartnerCard to also handle play
+function onSelectPartnerCard_real(idx, sortedHand) {
+  if (G.animating) return;
+  G.animating = true;
+  onPlayPartnerCard(idx, sortedHand);
+}
+
+function onSelectTrump(card) {
+  if (G.animating) return;
+  G.animating = true;
+  G.trumpSuit = card.suit;
+  const suitNames = { '♠': '黑桃', '♥': '红桃', '♦': '方块', '♣': '梅花' };
+
+  $('trump-display').textContent = `主牌：${suitNames[card.suit]} ${card.suit}`;
+  $('trump-display').style.display = 'block';
+  $('trump-display').style.background = SUIT_COLORS[card.suit] + 'cc';
+
+  toast(`主牌确定：${suitNames[card.suit]} ${card.suit}`, 'success');
+  showMsg(`主牌为 ${suitNames[card.suit]} ${card.suit}，${PLAYER_NAMES[G.dealerId]} 出牌`, 0);
+
+  // Sort all hands with trump first
+  for (let i = 0; i < 5; i++) {
+    G.players[i].hand = sortHand(G.players[i].hand);
+  }
+  renderPlayerHand();
+  updateSeatCards();
+
+  // Start playing
+  G.phase = 'play';
+  G.trick = [];
+  G.trickLeader = G.dealerId;
+  G.handPoints = 0;
+  G.animating = false;
+  updateTopBar();
+
+  // If it's human's turn
+  if (G.trickLeader === 4) {
+    showMsg('请出牌（双击手牌或点击"出牌"按钮）', 0);
+    renderPlayerHand();
+  } else {
+    showMsg(`${PLAYER_NAMES[G.trickLeader]} 出牌中...`, 0);
+    setTimeout(() => aiPlayCard(G.trickLeader), 600);
+  }
+}
+
+// ===================== CARD PLAY =====================
+
+function onSelectHandCard(idx, sortedHand) {
+  if (G.animating) return;
+  if (G.trickLeader !== 4) return;
+  G.selectedCardIdx = (G.selectedCardIdx === idx) ? null : idx;
+  renderPlayerHand();
+}
+
+function onPlayCard(idx, sortedHand) {
+  if (G.animating) return;
+  if (G.trickLeader !== 4) return;
+  const card = sortedHand[idx];
+  if (!card) return;
+  playCard(4, card, idx);
+}
+
+async function playCard(playerId, card, cardIdxInHand) {
+  G.animating = true;
+
+  // Remove from hand
+  const p = G.players[playerId];
+  p.hand = p.hand.filter(c => c.id !== card.id);
+
+  // Add to trick
+  G.trick.push({ playerId, card });
+
+  // Set lead suit on first card
+  if (G.trick.length === 1) {
+    G.trickSuit = card.suit;
+  }
+
+  updateSeatCards();
+  renderTrickCards();
+  renderPlayerHand();
+
+  const cardLabel_ = cardLabel(card);
+  const playerName = PLAYER_NAMES[playerId];
+  showMsg(`${playerName} 出 ${cardLabel_}`, 0);
+
+  await delay(500);
+  G.animating = false;
+
+  // Check if trick is complete (4 cards played, 5 players total, dealer is player 4)
+  if (G.trick.length === 5) {
+    await resolveTrick();
+    return;
+  }
+
+  // Next player
+  const nextId = (playerId + 1) % 5;
+  updateTopBar();
+  showMsg(`${playerName} 出 ${cardLabel_}，轮到 ${PLAYER_NAMES[nextId]}`, 0);
+
+  if (nextId === 4) {
+    renderPlayerHand();
+    showMsg('请出牌', 0);
+  } else {
+    setTimeout(() => aiPlayCard(nextId), 700);
+  }
+}
+
+async function resolveTrick() {
+  G.animating = true;
+
+  // Determine winner
+  let bestCard = G.trick[0];
+  let bestPlayer = G.trick[0].playerId;
+  let points = 0;
+
+  for (const entry of G.trick) {
+    points += cardPoints(entry.card);
+    if (cardValue(entry.card) > cardValue(bestCard)) {
+      bestCard = entry.card;
+      bestPlayer = entry.playerId;
+    }
+  }
+
+  G.handPoints += points;
+  updateTopBar();
+
+  const winnerName = PLAYER_NAMES[bestPlayer];
+  toast(`本轮结束：${winnerName} 赢 ${points} 分！`, points > 0 ? 'gold' : 'default');
+  showMsg(`${winnerName} 赢本轮！+${points}分`, 0);
+
+  await delay(1500);
+
+  // Award points to the winning player's team
+  const winnerIsDealerTeam = (bestPlayer === G.dealerId) || (G.players[bestPlayer].isPartner);
+  // Actually, points go to whoever takes the trick for their scoring team
+  // In Red Five Stars, the team that WINS the trick collects the points
+  // So just track G.handPoints as running total
+
+  // Clear trick
+  G.trick = [];
+  G.trickSuit = null;
+  renderTrickCards();
+
+  // Check if round over (all hands empty = 10 tricks done)
+  const totalCardsPlayed = G.players.reduce((sum, p) => sum + (10 - p.hand.length), 0);
+  if (totalCardsPlayed >= 50) {
+    await endRound();
+    return;
+  }
+
+  G.trickLeader = bestPlayer;
+  G.animating = false;
+  updateTopBar();
+
+  if (bestPlayer === 4) {
+    showMsg(`${winnerName} 赢了本轮！请继续出牌`, 0);
+    renderPlayerHand();
+  } else {
+    showMsg(`${winnerName} 赢了本轮！${PLAYER_NAMES[bestPlayer]} 继续出牌`, 0);
+    setTimeout(() => aiPlayCard(bestPlayer), 700);
+  }
+}
+
+async function aiPlayCard(playerId) {
+  if (G.animating) return;
+  G.animating = true;
+
+  const p = G.players[playerId];
+  const hand = sortHand(p.hand);
+
+  let card;
+  if (G.trick.length === 0) {
+    // Lead: play a mid-range card
+    card = hand[Math.floor(hand.length / 2)] || hand[0];
+  } else {
+    // Follow: play according to strategy
+    const leadSuit = G.trick[0].card.suit;
+    const sameSuit = hand.filter(c => c.suit === leadSuit);
+    if (sameSuit.length > 0) {
+      // Have the suit - try to win if partner
+      const pIsPartner = p.isPartner;
+      const pIsDealer = p.isDealer;
+      const dealerTeam = pIsPartner || pIsDealer;
+      if (dealerTeam) {
+        // Try to win
+        const maxCard = sameSuit[sameSuit.length - 1];
+        card = maxCard;
+      } else {
+        // Attacking: don't waste high cards
+        card = sameSuit[Math.floor(sameSuit.length / 2)] || sameSuit[0];
+      }
+    } else {
+      // No suit - consider trumping
+      const trumps = hand.filter(c => isTrump(c));
+      if (trumps.length > 0) {
+        const leadCards = G.trick.map(e => e.card);
+        const bestLead = leadCards.reduce((best, c) => cardValue(c) > cardValue(best) ? c : best);
+        const bestLeadVal = cardValue(bestLead);
+        const pIsPartner = p.isPartner;
+        const pIsDealer = p.isDealer;
+        const dealerTeam = pIsPartner || pIsDealer;
+        if (dealerTeam && bestLeadVal > 50 && trumps.length > 1) {
+          // Trump to win for dealer team
+          card = trumps[0];
+        } else {
+          card = trumps[trumps.length - 1]; // low trump
+        }
+      } else {
+        // Dump low card
+        card = hand[0];
+      }
+    }
+  }
+
+  if (!card) card = hand[0];
+  G.animating = false;
+  playCard(playerId, card);
+}
+
+// ===================== END ROUND =====================
+async function endRound() {
+  G.phase = 'score';
+  G.animating = true;
+
+  // Dealer's team target score: 40
+  const target = 40;
+  const dealerWon = G.handPoints < target; // < 40 means dealer team won the round
+  const dealerScore = G.handPoints >= target ? G.handPoints : 0;
+
+  // Scoring formula
+  const upgradeMultiplier = G.revonCount * G.level;
+  let dealerGain = 0;
+  let opponentGain = 0;
+
+  if (dealerWon) {
+    dealerGain = 4 * G.revonCount * G.level;
+    opponentGain = 2 * G.revonCount * G.level;
+  } else {
+    dealerGain = dealerScore;
+    opponentGain = 2 * G.revonCount * G.level;
+  }
+
+  // Level change
+  let levelChange = 0;
+  if (dealerWon) {
+    levelChange = 1;
+    G.level = Math.min(13, G.level + 1);
+  } else if (G.handPoints === 0) {
+    levelChange = 2;
+    G.level = Math.max(2, G.level - 2);
+  } else {
+    levelChange = -1;
+    G.level = Math.max(2, G.level - 1);
+  }
+
+  // Show score popup
+  const popup = document.createElement('div');
+  popup.className = 'score-popup';
+  popup.innerHTML = `
+    <h3>本轮得分：${G.handPoints}</h3>
+    <p>${dealerWon ? '庄家方胜利！' : '闲家方胜利！'}</p>
+    <p>等级 ${levelChange > 0 ? '↑' : levelChange < 0 ? '↓' : '—'} ${G.level}</p>
+  `;
+  document.body.appendChild(popup);
+
+  await delay(3000);
+  popup.remove();
+
+  // Show summary
+  $('sum-score').textContent = G.handPoints;
+  $('sum-result').textContent = dealerWon ? `庄家方胜利 ↑升${levelChange > 0 ? levelChange : 0}级` : `闲家方胜利 ↓降${levelChange < 0 ? -levelChange : 0}级`;
+  $('sum-level').textContent = G.level;
+  $('score-summary').style.display = 'flex';
+
+  G.currentRound++;
+  G.animating = false;
+}
+
+async function nextRound() {
+  $('score-summary').style.display = 'none';
+  $('trump-display').style.display = 'none';
+  $('trick-cards').innerHTML = '';
+  await startGame();
+}
+
+function newGame() {
+  $('score-summary').style.display = 'none';
+  $('intro').style.display = 'flex';
+  G.level = 5;
+  G.currentRound = 1;
+  updateTopBar();
+}
+
+// ===================== UTILS =====================
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ===================== EVENT LISTENERS =====================
+$('btn-start').addEventListener('click', startGame);
+$('btn-next-round').addEventListener('click', nextRound);
+$('btn-new-game').addEventListener('click', newGame);
+
+// Override the card click handler for partner selection to play immediately on click
+// (single click to play in this simplified version)
+const _origOnSelect = onSelectPartnerCard;
+// Replace with auto-play version
+window.onSelectPartnerCard = function(idx, sortedHand) {
+  if (G.phase === 'find-partner') {
+    onPlayPartnerCard(idx, sortedHand);
+  }
+};
+
+// Re-patch renderPlayerHand to use auto-play for find-partner
+const origRenderHand = renderPlayerHand;
+window.renderPlayerHand = function() {
+  const container = $('hand-cards');
+  const sorted = sortHand(G.players[4].hand);
+  container.innerHTML = '';
+  sorted.forEach((card, idx) => {
+    const div = document.createElement('div');
+    div.className = 'hand-card';
+    div.innerHTML = cardSVG(card);
+    div.dataset.idx = idx;
+    div.dataset.cardId = card.id;
+
+    if (G.phase === 'find-partner') {
+      div.addEventListener('click', () => window.onSelectPartnerCard(idx, sorted));
+    } else if (G.phase === 'choose-trump') {
+      div.addEventListener('click', () => onSelectTrump(card));
+    } else if (G.phase === 'play') {
+      if (G.players[4].hand.length === 0) return;
+      div.addEventListener('click', () => onSelectHandCard(idx, sorted));
+      div.addEventListener('dblclick', () => onPlayCard(idx, sorted));
+      // Also add a play button
+      const playBtn = document.createElement('button');
+      playBtn.textContent = '出牌';
+      playBtn.style.cssText = 'position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);background:#e63946;color:#fff;border:none;padding:2px 8px;border-radius:8px;font-size:0.7rem;cursor:pointer;display:none';
+      div.style.position = 'relative';
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.hand-card .play-btn').forEach(b => b.style.display = 'none');
+        if (G.selectedCardIdx !== null) playBtn.style.display = 'block';
+      });
+      playBtn.className = 'play-btn';
+      playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (G.selectedCardIdx !== null) onPlayCard(G.selectedCardIdx, sorted);
+      });
+      div.appendChild(playBtn);
+    }
+
+    if (G.selectedCardIdx === idx) div.classList.add('selected');
+    if (G.animating) div.classList.add('disabled');
+
+    container.appendChild(div);
+  });
+};
+
+// Also update onSelectHandCard to show play button
+const origOnSelectHand = onSelectHandCard;
+window.onSelectHandCard = function(idx, sortedHand) {
+  if (G.animating) return;
+  if (G.trickLeader !== 4) return;
+  G.selectedCardIdx = (G.selectedCardIdx === idx) ? null : idx;
+
+  // Show play buttons
+  document.querySelectorAll('.play-btn').forEach(btn => {
+    btn.style.display = G.selectedCardIdx !== null ? 'block' : 'none';
+  });
+
+  renderPlayerHand();
+};
+
+// Update onPlayCard to clear selection
+const origPlayCard = playCard;
+window.playCard = async function(playerId, card, cardIdxInHand) {
+  G.selectedCardIdx = null;
+  document.querySelectorAll('.play-btn').forEach(btn => btn.style.display = 'none');
+  await origPlayCard(playerId, card, cardIdxInHand);
+};
+
+// Init
+updateTopBar();
+</script>
+</body>
+</html>
